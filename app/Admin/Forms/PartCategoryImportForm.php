@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Admin\Forms;
+
+use App\Models\PartCategory;
+use Box\Spout\Common\Exception\IOException;
+use Box\Spout\Common\Exception\UnsupportedTypeException;
+use Dcat\Admin\Http\JsonResponse;
+use Dcat\Admin\Widgets\Form;
+use Dcat\EasyExcel\Excel;
+use Exception;
+use League\Flysystem\FileNotFoundException;
+
+class PartCategoryImportForm extends Form
+{
+    /**
+     * 处理表单提交逻辑.
+     *
+     * @param array $input
+     *
+     * @return JsonResponse
+     */
+    public function handle(array $input): JsonResponse
+    {
+        $success = 0;
+        $fail = 0;
+
+        $file = $input['file'];
+        $file_path = public_path('uploads/' . $file);
+
+        try {
+            $rows = Excel::import($file_path)->first()->toArray();
+            foreach ($rows as $row) {
+                try {
+                    if (!empty($row['名称'])) {
+                        $part_category = new PartCategory();
+                        $part_category->name = $row['名称'];
+                        // 这里导入判断空值，不能使用 ?? null 或者 ?? '' 的方式，写入数据库的时候
+                        // 会默认为插入''而不是null，这会导致像price这样的double也是插入''，就会报错
+                        // 其实price应该插入null
+                        if (!empty($row['描述'])) {
+                            $part_category->description = $row['描述'];
+                        }
+                        $part_category->save();
+                        $success++;
+                    } else {
+                        $fail++;
+                    }
+                } catch (Exception $exception) {
+                    $fail++;
+//                    return $this->response()->error($exception->getMessage());
+                }
+            }
+            $return = $this->response()
+                ->success(trans('main.success') . ': ' . $success . ' ; ' . trans('main.fail') . ': ' . $fail)
+                ->refresh();
+        } catch (IOException $e) {
+            $return = $this
+                ->response()
+                ->error(trans('main.file_io_error') . $e->getMessage());
+        } catch (UnsupportedTypeException $e) {
+            $return = $this
+                ->response()
+                ->error(trans('main.file_format') . $e->getMessage());
+        } catch (FileNotFoundException $e) {
+            $return = $this
+                ->response()
+                ->error(trans('main.file_none') . $e->getMessage());
+        }
+
+        return $return;
+    }
+
+    /**
+     * 构造表单.
+     */
+    public function form()
+    {
+        $this->file('file')
+            ->accept('xlsx,csv')
+            ->autoUpload()
+            ->uniqueName()
+            ->required()
+            ->help(admin_trans_label('File Help'));
+    }
+}
