@@ -33,9 +33,7 @@ Route::group([
     'namespace' => config('admin.route.namespace'),
     'middleware' => config('admin.route.middleware'),
 ], function (Router $router) {
-    $router->get('/', 'HomeController@index')
-        ->name('home');
-
+    $router->get('/', 'HomeController@index')->name('home');
     /**
      * 辅助信息.
      */
@@ -213,9 +211,7 @@ Route::group([
     /**
      * 菜单.
      */
-    $router->resource('/menu', 'MenuController')
-        ->names('menu');
-
+    $router->resource('/menu', 'MenuController')->names('menu');
     $router->get('/site/setting', [SiteSettingController::class, 'index'])
         ->name('site.setting.index');
 
